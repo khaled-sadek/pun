@@ -29,7 +29,7 @@ use mago_codex::ttype::comparator::{ComparisonResult, union_comparator};
 use mago_codex::ttype::expander::get_parameter_dependent_signature_of_function_like_identifier;
 use mago_codex::ttype::union::TUnion;
 use mago_codex::ttype::{
-    combine_union_types, get_array_parameters, get_false, get_int, get_int_or_string,
+    combine_union_types, get_array_parameters, get_bool, get_false, get_int, get_int_or_string,
     get_int_range, get_iterable_parameters, get_keyed_array, get_literal_int, get_mixed, get_never,
     get_non_negative_int, get_null, get_truthy_string, intersect_union_types,
 };
@@ -448,9 +448,7 @@ impl FilterFunctions {
             return Some(get_mixed());
         }
         if let Some(filter) = filter
-            && filter != 257
-            && filter != 275
-            && matches!(filter, 258 | 259 | 272..=274 | 276 | 277 | 513..=520 | 523)
+            && matches!(filter, 259 | 272..=274 | 276 | 277 | 513..=520 | 523)
         {
             return None;
         }
@@ -669,12 +667,16 @@ impl FilterFunctions {
             Some(default.clone())
         } else if filter == 257 {
             Self::exact_integer(&input, &default, flags, codebase)
+        } else if filter == 258 {
+            Self::exact_boolean(&input, &default)
         } else {
             None
         };
         let mut ty = exact.clone().unwrap_or_else(|| {
             if filter == 257 {
                 get_int()
+            } else if filter == 258 {
+                get_bool()
             } else if filter == 275 {
                 get_truthy_string()
             } else {
@@ -716,6 +718,16 @@ impl FilterFunctions {
             false,
             &mut ComparisonResult::default(),
         )
+    }
+
+    fn exact_boolean(input: &TUnion, default: &TUnion) -> Option<TUnion> {
+        if input.is_bool() {
+            return Some(input.clone());
+        }
+        if input.is_null() {
+            return Some(default.clone());
+        }
+        None
     }
 
     fn exact_integer(
