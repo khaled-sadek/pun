@@ -69,6 +69,7 @@ pub(super) fn registry(
     registry.register_function_call_hook(builtins.clone());
     registry.register_function_provider(builtins);
     registry.register_method_provider(ClosureMethods(contents.to_vec()));
+    registry.register_method_provider(ThrowableGetCode);
     registry.register_function_provider(super::array_fill::ArrayFill);
     registry.register_function_provider(super::array_sum::ArraySum);
     registry.register_function_provider(super::date_format::DateFormat);
@@ -1822,5 +1823,76 @@ impl ClosureMethods {
             .and_then(|id| codebase.get_function_like(&id))
             .and_then(|f| self.0.get(f.span.start.offset as usize..))
             .is_some_and(|text| text.starts_with(b"static"))
+    }
+}
+
+struct ThrowableGetCode;
+
+impl ThrowableGetCode {
+    fn redeclared_code_type<'a>(
+        codebase: &'a CodebaseMetadata,
+        mut current: &'a mago_codex::metadata::class_like::ClassLikeMetadata,
+    ) -> Option<TUnion> {
+        let code = mago_word::word(b"$code");
+        let mut seen = HashSet::default();
+        while seen.insert(current.name) {
+            if current.name.as_bytes().eq_ignore_ascii_case(b"exception")
+                || current.name.as_bytes().eq_ignore_ascii_case(b"error")
+            {
+                return None;
+            }
+            if let Some(property) = current.properties.get(&code)
+                && let Some(type_metadata) = property
+                    .type_metadata
+                    .as_ref()
+                    .or(property.type_declaration_metadata.as_ref())
+            {
+                return Some(type_metadata.type_union.clone());
+            }
+            let parent = current.direct_parent_class?;
+            current = codebase.class_likes.get(&parent)?;
+        }
+        None
+    }
+}
+
+impl Provider for ThrowableGetCode {
+    fn meta() -> &'static ProviderMeta {
+        &META
+    }
+}
+
+impl MethodReturnTypeProvider for ThrowableGetCode {
+    fn targets() -> &'static [MethodTarget] {
+        static TARGETS: [MethodTarget; 3] = [
+            MethodTarget::exact(b"throwable", b"getcode"),
+            MethodTarget::exact(b"exception", b"getcode"),
+            MethodTarget::exact(b"error", b"getcode"),
+        ];
+        &TARGETS
+    }
+
+    fn get_return_type(
+        &self,
+        context: &ProviderContext<'_, '_, '_>,
+        _: &[u8],
+        _: &[u8],
+        invocation: &InvocationInfo<'_, '_, '_>,
+    ) -> Option<TUnion> {
+        let class = invocation
+            .inner()
+            .target
+            .get_method_context()?
+            .class_like_metadata;
+        let codebase = context.codebase();
+        if codebase.is_instance_of(class.name.as_bytes(), b"pdoexception")
+            || codebase.is_instance_of(b"pdoexception", class.name.as_bytes())
+        {
+            return Some(benevolent(get_int_or_string()));
+        }
+        if let Some(code_type) = Self::redeclared_code_type(codebase, class) {
+            return Some(code_type);
+        }
+        Some(get_int())
     }
 }
