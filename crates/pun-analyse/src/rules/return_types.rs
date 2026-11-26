@@ -720,6 +720,7 @@ impl FilterFunctions {
         )
     }
 
+    // FilterFunctionReturnTypeHelper::determineExactType
     fn exact_boolean(input: &TUnion, default: &TUnion) -> Option<TUnion> {
         if input.is_bool() {
             return Some(input.clone());

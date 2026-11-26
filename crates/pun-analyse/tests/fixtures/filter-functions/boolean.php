@@ -9,8 +9,9 @@ use function PHPStan\dumpType;
 /**
  * @param 0|134217728 $nullFlag
  * @param array<string, mixed> $map
+ * @param 257|258 $intOrBoolFilter
  */
-function booleanCases(mixed $input, bool $bool, int $flags, int $nullFlag, array $map): void
+function booleanCases(mixed $input, bool $bool, int $flags, int $nullFlag, array $map, ?bool $nullableBool, int $filter, int $intOrBoolFilter): void
 {
     dumpType(filter_var($input, FILTER_VALIDATE_BOOLEAN));
     dumpType(filter_var($input, FILTER_VALIDATE_BOOL));
@@ -31,9 +32,14 @@ function booleanCases(mixed $input, bool $bool, int $flags, int $nullFlag, array
     dumpType(filter_var(new \stdClass(), FILTER_VALIDATE_BOOLEAN));
     dumpType(filter_var($map, FILTER_VALIDATE_BOOLEAN, FILTER_REQUIRE_ARRAY));
     dumpType(filter_var($input, FILTER_VALIDATE_BOOLEAN, FILTER_FORCE_ARRAY));
-    dumpType(filter_var($input));
     dumpType(filter_input(INPUT_GET, 'flag', FILTER_VALIDATE_BOOLEAN));
     dumpType(filter_input(INPUT_GET, 'flag', FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE));
+    dumpType(filter_var($nullableBool, FILTER_VALIDATE_BOOLEAN));
+    dumpType(filter_var($nullableBool, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE));
+    dumpType(filter_var($input, FILTER_VALIDATE_BOOLEAN, ['options' => ['default' => null]]));
+    dumpType(filter_var($input, $filter));
+    dumpType(filter_var($input, $intOrBoolFilter));
+    dumpType(filter_var($input, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE | FILTER_REQUIRE_ARRAY));
 }
 
 final class Config
